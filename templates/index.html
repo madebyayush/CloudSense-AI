@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CloudSense AI | Resource Optimizer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="brand-mark">C</span><div><b>CloudSense AI</b><small>Predictive cloud resource optimization</small></div></div>
+  <div class="status"><span class="dot"></span> Simulation environment</div>
+</header>
+<main class="container">
+  <section class="intro">
+    <div><p class="eyebrow">INTELLIGENT AUTO-SCALING</p><h1>Cloud resource control center</h1>
+    <p class="muted">Predict workload demand and make capacity decisions before resources are overwhelmed.</p></div>
+    <button class="secondary" id="resetBtn">↺ Reset demo</button>
+  </section>
+  <section class="notice">
+  <b>Simulation mode:</b> workload, predictions and scaling recommendations are simulated.
+  Your EC2 instance is running on AWS and may incur charges.
+</section>
+
+<section class="aws-monitor panel">
+  <div class="panel-heading">
+    <div>
+      <h2>AWS EC2 Live Monitoring</h2>
+      <p class="muted">Actual infrastructure metrics retrieved from Amazon CloudWatch</p>
+    </div>
+    <button class="secondary" id="refreshAwsBtn">↻ Refresh</button>
+  </div>
+
+  <div class="aws-status-row">
+    <span class="dot" id="awsDot"></span>
+    <span id="awsStatus">Connecting to CloudWatch...</span>
+    <span class="aws-source">AMAZON CLOUDWATCH</span>
+  </div>
+
+  <div class="aws-cards">
+    <article class="aws-metric">
+      <span>Latest EC2 CPU</span>
+      <strong id="awsCpu">—</strong>
+      <small>Actual CPU utilization</small>
+    </article>
+    <article class="aws-metric">
+      <span>EC2 Instance</span>
+      <strong class="instance-value">CloudSense-AI</strong>
+      <small id="awsInstance">Loading instance ID...</small>
+    </article>
+    <article class="aws-metric">
+      <span>AWS Region</span>
+      <strong class="instance-value">Sydney</strong>
+      <small>ap-southeast-2</small>
+    </article>
+    <article class="aws-metric">
+      <span>Data Points</span>
+      <strong id="awsPoints">—</strong>
+      <small>Historical measurements</small>
+    </article>
+  </div>
+
+  <div class="aws-chart-heading">
+    <div>
+      <h3>EC2 CPU Utilization History</h3>
+      <p class="muted">Five-minute CloudWatch measurements</p>
+    </div>
+    <span id="awsUpdated" class="muted">Waiting for data</span>
+  </div>
+
+  <div class="aws-chart-wrap">
+    <canvas id="awsCpuChart"></canvas>
+  </div>
+</section>
+  <section class="controls panel">
+    <div><label for="mode">Workload scenario</label><select id="mode"><option value="low">Low demand</option><option value="normal" selected>Normal demand</option><option value="spike">Traffic spike</option></select></div>
+    <button id="stepBtn" class="primary">Run next interval <span>→</span></button>
+    <p id="feedback" class="muted">Choose a workload and run the simulation.</p>
+  </section>
+  <section class="cards">
+    <article class="metric"><span>Current CPU</span><strong id="cpu">—</strong><small>Simulated utilization</small></article>
+    <article class="metric"><span>Predicted CPU</span><strong id="predicted">—</strong><small>Next interval forecast</small></article>
+    <article class="metric"><span>Active instances</span><strong id="instances">2</strong><small>Simulated capacity</small></article>
+    <article class="metric"><span>Requests / min</span><strong id="requests">—</strong><small>Incoming workload</small></article>
+  </section>
+  <section class="grid">
+    <article class="panel chart-panel"><div class="panel-heading"><div><h2>Workload monitoring</h2><p class="muted">Current and predicted CPU utilization</p></div><span class="tag">LIVE DEMO</span></div><canvas id="cpuChart"></canvas></article>
+    <article class="panel decision-panel"><div class="panel-heading"><div><h2>Scaling decision</h2><p class="muted">AI-assisted capacity recommendation</p></div></div>
+      <div id="action" class="action neutral">WAITING</div><p id="reason" class="muted">Run a simulation interval to receive a recommendation.</p>
+      <div class="divider"></div><div class="split"><span>Previous instances</span><b id="previous">—</b></div><div class="split"><span>Recommended instances</span><b id="recommended">2</b></div>
+    </article>
+  </section>
+  <section class="grid lower">
+    <article class="panel"><h2>Illustrative cost model</h2><p class="muted">Not an AWS bill or price estimate.</p><div class="cost"><div><small>Estimated hourly cost</small><strong id="cost">$0.0200</strong></div><div><small>vs. fixed 4-instance baseline</small><strong id="savings">50%</strong></div></div><div class="bar"><span id="costBar"></span></div></article>
+    <article class="panel"><h2>Model information</h2><p class="muted">Random Forest Regression trained on generated sample data.</p><div class="split"><span>Test MAE</span><b id="mae">Loading…</b></div><div class="split"><span>Test RMSE</span><b id="rmse">Loading…</b></div><div class="split"><span>Training samples</span><b id="samples">Loading…</b></div></article>
+  </section>
+  <section class="panel history"><div class="panel-heading"><div><h2>Recent decisions</h2><p class="muted">Latest workload intervals</p></div></div><div class="table-wrap"><table><thead><tr><th>Time</th><th>Scenario</th><th>CPU</th><th>Prediction</th><th>Decision</th><th>Instances</th></tr></thead><tbody id="history"><tr><td colspan="6" class="empty">No simulation data yet.</td></tr></tbody></table></div></section>
+  <footer>CloudSense AI · Academic demonstration prototype · Synthetic workload data</footer>
+</main>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body></html>

@@ -1,0 +1,165 @@
+const $ = id => document.getElementById(id);
+let chart;
+const labels = [], actual = [], predicted = [];
+function initChart(){
+  const ctx = $("cpuChart").getContext("2d");
+  chart = new Chart(ctx,{type:"line",data:{labels,datasets:[
+    {label:"Current CPU",data:actual,borderColor:"#245b8f",backgroundColor:"#245b8f18",fill:true,tension:.32,pointRadius:3},
+    {label:"Predicted CPU",data:predicted,borderColor:"#d18b2c",borderDash:[6,4],fill:false,tension:.32,pointRadius:3}
+  ]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{min:0,max:100,title:{display:true,text:"CPU utilization (%)"}},x:{grid:{display:false}}},plugins:{legend:{position:"bottom"}}}});
+}
+function updateChart(row){
+  labels.push(row.timestamp);actual.push(row.cpu);predicted.push(row.predicted_cpu);
+  if(labels.length>15){labels.shift();actual.shift();predicted.shift();}
+  chart.update();
+}
+function setAction(action){
+  const el=$("action");el.textContent=action;el.className="action "+(action==="SCALE UP"?"up":action==="SCALE DOWN"?"down":"neutral");
+}
+function addHistory(r){
+  const body=$("history");
+  if(body.querySelector(".empty"))body.innerHTML="";
+  const tr=document.createElement("tr");
+  [r.timestamp,r.workload_mode,r.cpu+"%",r.predicted_cpu+"%",r.action,r.instances].forEach(v=>{
+    const td=document.createElement("td");td.textContent=v;tr.appendChild(td);
+  });
+  body.prepend(tr);while(body.children.length>10)body.lastChild.remove();
+}
+async function step(){
+  $("stepBtn").disabled=true;$("stepBtn").textContent="Calculating…";
+  try{
+    const res=await fetch("/api/step",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode:$("mode").value})});
+    const r=await res.json();if(!res.ok)throw new Error(r.error||"Request failed");
+    $("cpu").textContent=r.cpu+"%";$("predicted").textContent=r.predicted_cpu+"%";
+    $("instances").textContent=r.instances;$("requests").textContent=r.requests_per_minute.toLocaleString();
+    $("previous").textContent=r.previous_instances;$("recommended").textContent=r.instances;
+    $("reason").textContent=r.reason;$("feedback").textContent="Interval completed at "+r.timestamp;
+    $("cost").textContent="$"+r.estimated_hourly_cost.toFixed(4);
+    $("savings").textContent=r.estimated_savings_percent+"%";
+    $("costBar").style.width=Math.min(100,r.instances/4*100)+"%";
+    setAction(r.action);updateChart(r);addHistory(r);
+  }catch(e){$("feedback").textContent=e.message;}
+  finally{$("stepBtn").disabled=false;$("stepBtn").innerHTML='Run next interval <span>→</span>';}
+}
+async function loadModel(){
+  const r=await (await fetch("/api/model")).json();
+  $("mae").textContent=r.mae+"%";$("rmse").textContent=r.rmse+"%";$("samples").textContent=r.training_samples;
+}
+$("stepBtn").addEventListener("click",step);
+$("resetBtn").addEventListener("click",async()=>{
+  await fetch("/api/reset",{method:"POST"});
+  labels.length=actual.length=predicted.length=0;chart.update();
+  ["cpu","predicted","requests"].forEach(id=>$(id).textContent="—");
+  $("instances").textContent="2";$("previous").textContent="—";$("recommended").textContent="2";
+  $("reason").textContent="Run a simulation interval to receive a recommendation.";
+  $("history").innerHTML='<tr><td colspan="6" class="empty">No simulation data yet.</td></tr>';
+  $("cost").textContent="$0.0200";$("savings").textContent="50%";$("costBar").style.width="50%";
+  $("feedback").textContent="Demo reset.";setAction("WAITING");$("action").className="action neutral";
+});
+initChart();loadModel();
+// ==========================================
+// AWS CLOUDWATCH LIVE MONITORING
+// ==========================================
+
+let awsChart;
+
+function initAwsChart() {
+  const ctx = $("awsCpuChart").getContext("2d");
+
+  awsChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: [],
+      datasets: [{
+        label: "Actual EC2 CPU",
+        data: [],
+        borderColor: "#16845b",
+        backgroundColor: "#16845b18",
+        fill: true,
+        tension: 0.3,
+        pointRadius: 3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          title: {
+            display: true,
+            text: "CPU utilization (%)"
+          }
+        },
+        x: {
+          grid: { display: false }
+        }
+      },
+      plugins: {
+        legend: { position: "bottom" }
+      }
+    }
+  });
+}
+
+async function loadAwsMetrics() {
+  const status = $("awsStatus");
+  const dot = $("awsDot");
+
+  try {
+    status.textContent = "Fetching CloudWatch metrics...";
+
+    const response = await fetch("/api/cloudwatch");
+    const result = await response.json();
+
+    if (!response.ok || result.status !== "success") {
+      throw new Error(result.message || "CloudWatch request failed");
+    }
+
+    const metrics = result.metrics || [];
+
+    $("awsCpu").textContent =
+      result.latest_cpu !== null && result.latest_cpu !== undefined
+        ? result.latest_cpu.toFixed(3) + "%"
+        : "No data";
+
+    $("awsInstance").textContent = result.instance_id;
+    $("awsPoints").textContent = metrics.length;
+
+    if (metrics.length > 0) {
+      const labels = metrics.map(point =>
+        new Date(point.timestamp).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        })
+      );
+
+      const values = metrics.map(point => point.cpu);
+
+      awsChart.data.labels = labels;
+      awsChart.data.datasets[0].data = values;
+      awsChart.update();
+
+      $("awsUpdated").textContent =
+        "Last fetched: " + new Date().toLocaleTimeString();
+    } else {
+      $("awsUpdated").textContent = "No CloudWatch datapoints available";
+    }
+
+    status.textContent = "Connected to Amazon CloudWatch";
+    dot.style.background = "#16845b";
+
+  } catch (error) {
+    status.textContent = "CloudWatch connection failed: " + error.message;
+    dot.style.background = "#b94b43";
+    $("awsUpdated").textContent = "Unable to update metrics";
+  }
+}
+
+$("refreshAwsBtn").addEventListener("click", loadAwsMetrics);
+
+initAwsChart();
+loadAwsMetrics();
+
+setInterval(loadAwsMetrics, 60000);// ==========================================
